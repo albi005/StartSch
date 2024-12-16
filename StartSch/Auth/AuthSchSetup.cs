@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
+using StartSch.Auth.Requirements;
 using StartSch.Data;
 
 namespace StartSch.Auth;
@@ -72,6 +73,9 @@ public static class AuthSchSetup
                     ClaimsIdentity identity = (ClaimsIdentity)context.Principal!.Identity!;
                     if (userInfo.PekActiveMemberships != null)
                     {
+                        // userInfo.PekActiveMemberships.Add(new(528, "Paschta", ["adminsitrator"]));
+                        // userInfo.PekActiveMemberships.Add(new(473, "LángoSCH", ["uwu", "korvez"]));
+                        // userInfo.PekActiveMemberships.Add(new(490, "ReggeliSCH", ["xd"]));
                         identity.AddClaim(new(
                             "memberships",
                             JsonSerializer.Serialize(
@@ -130,7 +134,8 @@ public static class AuthSchSetup
 
         services.AddDistributedMemoryCache(); // needed by the token refresher
         services.AddOpenIdConnectAccessTokenManagement(); // the token refresher
-        services.AddAuthorization();
+        services.AddAuthorizationBuilder()
+            .AddPolicy("Admin", policy => policy.AddRequirements(new AdminRequirement()));
         services.AddCascadingAuthenticationState();
     }
 

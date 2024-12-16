@@ -1,10 +1,10 @@
 @page "/admin/pincer/{GroupId:int}/new-post"
-@using System.ComponentModel.DataAnnotations
 @using Ganss.Xss
 @using Markdig
 @using Microsoft.EntityFrameworkCore
 @using StartSch.Data
 @using StartSch.Services
+
 @rendermode InteractiveServer
 @inject IServiceProvider Services
 @inject IDbContextFactory<Db> DbFactory
@@ -21,7 +21,8 @@
     <div style="flex: 1">
         <h2>Új poszt</h2>
 
-        <EditForm Model="_model" OnValidSubmit="Send" FormName="Starship1">
+        <EditForm Model="_model" OnValidSubmit="Send" FormName="NewPost">
+
             <div>
                 <label>
                     <span style="display: block">
@@ -73,6 +74,9 @@
             <FilledButton type="submit" style="margin-top: 16px">
                 Közzététel
             </FilledButton>
+            <TextButton type="submit" style="margin-top: 16px">
+                Mentés későbbre
+            </TextButton>
         </EditForm>
     </div>
 
@@ -112,7 +116,7 @@
                     font-size: 15px;
                     max-height: 10lh;
                     overflow: hidden">
-                @excerpt.Replace("\n\n", "\n")
+                @excerpt
             </p>
         </div>
 
@@ -139,7 +143,7 @@
     protected override async Task OnInitializedAsync()
     {
         await using Db db = await DbFactory.CreateDbContextAsync();
-        _group = await db.Groups.FindAsync(GroupId);
+        _group = await db.Groups.FindAsync(GroupId); // TODO: Handle group not found
         _openings = await db.Openings
             .Include(o => o.Event.Groups)
             .Where(o => o.Event.Groups.Any(g => g.Id == GroupId))
@@ -155,6 +159,19 @@
         var excerpt = string.IsNullOrWhiteSpace(_model.Excerpt)
             ? _textOnlySanitizer.Sanitize(Markdown.ToHtml(_model.Body))
             : _model.Excerpt;
+
+        await using Db db = await DbFactory.CreateDbContextAsync();
+        db.Attach(_group!);
+        Post post = new()
+        {
+            Title = _model.Title,
+            Excerpt = excerpt,
+            Body = _model.Body,
+            Groups = { _group! }
+        };
+        db.Posts.Add(post);
+        await db.SaveChangesAsync();
+
         await pushService.SendNotification(
             new(_model.Title, excerpt.AsSpan().ToAndroidNotificationBody(), null, "https://start.sch.bme.hu"),
             [
